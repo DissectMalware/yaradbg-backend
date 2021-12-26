@@ -1,0 +1,209 @@
+start:  rules
+
+rules: (rule|import_lib|include_yara)*
+
+import_lib: IMPORT text_string
+include_yara: INCLUDE text_string
+rule: rule_modifiers rule_keyword IDENTIFIER tags "{" meta strings condition "}"
+rule_modifiers: rule_modifier*
+rule_modifier: PRIVATE
+                | GLOBAL
+rule_keyword: "rule"
+identifier:  IDENTIFIER
+            | identifier "." IDENTIFIER
+            | identifier index
+            | identifier "(" arguments ")"
+index: "[" primary_expression "]"
+tags: (":" tag_list)?
+tag_list: identifier+
+meta: (META ":" meta_declarations)?
+meta_declarations: meta_declaration+
+meta_declaration: IDENTIFIER "=" (text_string|("-")?NUMBER|TRUE|FALSE)
+strings: (STRINGS ":" string_declarations)?
+condition: CONDITION ":" boolean_expression
+string_declarations: string_declaration+
+string_declaration: string_identifier "=" ((text_string string_modifiers) | (regex_exp  regexp_modifiers) | (hex_string hex_modifiers))
+string_identifier: /\$[_a-z0-9]*/i
+text_string :  /\"([^\"\\]|\\([trn\\\"]|x[a-f0-9]{2}))*\"/i
+string_modifiers: string_modifier*
+
+string_modifier:   WIDE
+                   | ASCII
+                   | NOCASE
+                   | FULLWORD
+                   | PRIVATE
+                   | XOR ("(" NUMBER ("-" NUMBER)? ")" )?
+                   | BASE64 ("(" text_string ")" )?
+                   | BASE64_WIDE ("(" text_string ")" )?
+
+regex_exp: /\/([^\\\/\\]|\\[\\\/\\(\S| )])+\/[icxtsmpwnJUdbeqx]*/
+regexp_modifiers: regexp_modifier*
+regexp_modifier:  WIDE
+                    | ASCII
+                    | NOCASE
+                    | FULLWORD
+                    | PRIVATE
+
+hex_string: "{" hex_expression "}"
+hex_expression: (hex_byte | hex_ignore_range | hex_alt_bytes)*
+hex_byte: /[0-9a-f?]{2,}/i
+hex_ignore_range: /\[\s*\d*(\s*-\s*\d*)?\s*\]/
+hex_alt_bytes: "(" hex_expression ("|" hex_expression)*  ")"
+
+hex_modifiers: hex_modifier*
+hex_modifier:  PRIVATE
+
+arguments: (arguments_list)?
+arguments_list: expression ("," arguments_list)*
+
+?boolean_expression: expression
+
+?expression: and_expression (OR and_expression)*
+?and_expression: not_expression (AND not_expression)*
+?not_expression: (NOT)* str_expression
+?str_expression: str_cmp_expression MATCHES regex_exp
+            | str_cmp_expression ((CONTAINS|ICONTAINS|STARTSWITH|ISTARTSWITH|ENDSWITH|IENDSWITH|IEQUALS|EQ|NEQ)  str_cmp_expression)*
+?str_cmp_expression: other_expression ((LT|GT|LE|GE) other_expression)*
+
+?other_expression: primary_expression
+            | TRUE
+            | FALSE
+            | STRING_IDENTIFIER
+            | STRING_IDENTIFIER AT primary_expression
+            | STRING_IDENTIFIER IN range
+            | FOR for_expression for_variables IN iterator ":" "(" boolean_expression ")"
+            | FOR for_expression OF string_set ":" "(" boolean_expression ")"
+            | for_expression OF string_set
+            | for_expression OF rule_set
+            | primary_expression PERCENT OF string_set
+            | primary_expression PERCENT OF rule_set
+            | for_expression OF string_set IN range
+            | DEFINED boolean_expression
+            | "(" expression ")"
+
+
+for_variables: IDENTIFIER ("," for_variables)*
+iterator: identifier | integer_set
+
+integer_set: "(" integer_enumeration ")"
+            | range
+integer_enumeration: primary_expression ("," integer_enumeration)*
+range: "(" primary_expression DOT_DOT primary_expression ")"
+
+string_set: "(" string_enumeration ")" | THEM
+string_enumeration: string_enumeration_item ("," string_enumeration)*
+string_enumeration_item: STRING_IDENTIFIER
+                        | STRING_IDENTIFIER_WITH_WILDCARD
+
+rule_set: "(" rule_enumeration ")"
+rule_enumeration : rule_enumeration_item
+                   | rule_enumeration "," rule_enumeration_item
+rule_enumeration_item: IDENTIFIER
+                        | IDENTIFIER_WITH_WILDCARD
+
+for_expression: primary_expression
+                | ALL
+                | ANY
+                | NONE
+
+?primary_expression: xor_primary_expression (OR_OP xor_primary_expression)*
+?xor_primary_expression: and_primary_expression (XOR_OP and_primary_expression)*
+?and_primary_expression: shift_primary_expression (AND_OP shift_primary_expression)*
+?shift_primary_expression: add_primary_expression ((SHIFT_LEFT|SHIFT_RIGHT) add_primary_expression)*
+?add_primary_expression: multiplication_primary_expression ((ADDITION|SUBTRACTION) multiplication_primary_expression)*
+?multiplication_primary_expression: unary_primary_expression ((MULTIPLICATION|DIVISION|REMAINDER) unary_primary_expression)*
+?unary_primary_expression: (BITWISE_NOT|UNARY_MINUS)* other_primary_expression
+?other_primary_expression: "(" primary_expression ")"
+                    | (STRING_OFFSET|STRING_LENGTH) "[" other_primary_expression "]"
+                    | FILESIZE
+                    | ENTRYPOINT
+                    | integer_function
+                    | NUMBER
+                    | DOUBLE
+                    | text_string
+                    | STRING_COUNT IN range
+                    | STRING_COUNT
+                    | STRING_OFFSET
+                    | STRING_LENGTH
+                    | identifier
+                    | regex_exp
+
+integer_function: INTEGER_FUNCTION "(" primary_expression ")"
+
+MULTIPLICATION: "*"
+DIVISION: "\\"
+ADDITION: "+"
+SUBTRACTION: "-"
+REMAINDER: "%"
+BITWISE_NOT: "~"
+UNARY_MINUS: "-"
+PERCENT: "%"
+AND_OP: "&"
+OR_OP: "|"
+XOR_OP: "^"
+INCLUDE: "include"
+
+
+ALL: "all"
+AND: "and"
+ANY: "any"
+ASCII: "ascii"
+AT: "at"
+BASE64: "base64"
+BASE64_WIDE: "base64wide"
+CONDITION: "condition"
+CONTAINS: "contains"
+DEFINED: "defined"
+DOT_DOT: ".."
+ENDSWITH: "endswith"
+ENTRYPOINT: "entrypoint"
+EQ: "=="
+FALSE: "false"
+FILESIZE: "filesize"
+FOR: "for"
+FULLWORD: "fullword"
+GE: ">="
+GLOBAL: "global"
+GT: ">"
+ICONTAINS: "icontains"
+IENDSWITH: "iendswith"
+IEQUALS: "iequals"
+IMPORT: "import"
+IN: "in"
+ISTARTSWITH: "istartswith"
+LE: "<="
+LT: "<"
+MATCHES: "matches"
+META: "meta"
+NEQ: "!="
+NOCASE: "nocase"
+NONE: "none"
+NOT: "not"
+OF: "of"
+OR: "or"
+PRIVATE: "private"
+RULE: "rule"
+SHIFT_LEFT: "<<"
+SHIFT_RIGHT: ">>"
+STARTSWITH: "startswith"
+STRINGS: "strings"
+THEM: "them"
+TRUE: "true"
+WIDE: "wide"
+XOR: "xor"
+
+IDENTIFIER: /[a-z_][a-z0-9_]*/i
+IDENTIFIER_WITH_WILDCARD: /[a-zA-Z_][_a-zA-Z0-9]*\*/
+INTEGER_FUNCTION.2: /u?int(8|16|32)(be)?/
+NUMBER: /0x[\da-fA-F]+|0o[0-7]+|\d+(MB|KB){0,1}/
+DOUBLE.2: /\d+\.\d+/
+STRING_IDENTIFIER_WITH_WILDCARD: /\$[a-z0-9_]*\*/i
+STRING_IDENTIFIER: /\$[a-z0-9_]*/i
+STRING_COUNT: /\#[a-z0-9_]*/i
+STRING_OFFSET: /\@[a-z0-9_]*/i
+STRING_LENGTH: /\![a-z0-9_]*/i
+
+%import common.WS
+%import common.CPP_COMMENT
+%import common.C_COMMENT
+%ignore CPP_COMMENT|C_COMMENT|WS
