@@ -1,5 +1,5 @@
 import json
-from yara_transformer import *
+from .yara_transformer import *
 
 
 class YaraEncoder(json.JSONEncoder):

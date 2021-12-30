@@ -1,7 +1,21 @@
 import time
 import json
-from yara_transformer import *
-from yara_json_encoder import YaraEncoder
+import os
+from .yara_transformer import *
+from .yara_json_encoder import YaraEncoder
+
+
+def parse(yara_rule_str):
+    with open('YaraDBGHttpTrigger\ydbg\yara.grammar', 'r') as input_file:
+        yara_grammar = ''.join(input_file.readlines())
+
+    transformer = YaraTransformer()
+    yara_parser = Lark(yara_grammar, parser='lalr', debug=True, transformer=transformer)
+    yara_parsed_tree = yara_parser.parse(yara_rule_str)
+
+    minified_json_str = json.dumps(transformer, cls=YaraEncoder, indent=None, separators=(',', ':'))
+
+    return minified_json_str
 
 
 def main():
