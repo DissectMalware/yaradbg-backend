@@ -27,7 +27,7 @@ def main():
     yara_parser = Lark(yara_grammar, parser='lalr', debug=True, transformer=transformer)
 
     yara_content = ""
-    with open('test.yar', 'r', encoding="utf_8") as input_file:
+    with open('..\\..\\internal\\test.yar', 'r', encoding="utf_8") as input_file:
         yara_content = ''.join(input_file.readlines())
 
     start = time.time()
@@ -39,7 +39,7 @@ def main():
     start = time.time()
 
     minified_json_str = json.dumps(transformer, cls=YaraEncoder, indent=None, separators=(',', ':'))
-    open("test.json","w").write(minified_json_str)
+    open("..\\..\\internal\\test.json","w").write(minified_json_str)
     end = time.time()
 
     print((end - start))

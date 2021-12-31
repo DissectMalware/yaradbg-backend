@@ -11,6 +11,13 @@ class Task:
         self.id = task_id
 
 
+class String:
+    def __init__(self, string_name, string_value, modifiers):
+        self.str_name = string_name
+        self.str_val = string_value
+        self.modifiers = modifiers
+
+
 class YaraTransformer(Transformer):
     def __init__(self):
         self.yara_rules = {}
@@ -68,11 +75,18 @@ class YaraTransformer(Transformer):
         args[0].type = "regex_expression"
         return args[0]
 
+    def regexp_modifiers(self, args):
+        return args
+
+    def regexp_modifier(self, args):
+        return args[0]
+
     def string_declarations(self, args):
         return args
 
     def string_declaration(self, args):
-        p = 1
+        s = String(args[0], args[1], args[2] )
+        self.string_queue.append(s)
         return {'variable': args[0]}
 
     def string_identifier(self, args):
@@ -84,6 +98,22 @@ class YaraTransformer(Transformer):
     def string_modifier(self, args):
         return args[0]
 
+    def hex_string(self, args):
+        return args[0]
+
+    def hex_byte(self, args):
+        args[0].type ='hex_byte'
+        return args[0]
+
+
+
+
+
+    def hex_modifiers(self, args):
+        return args
+
+    def hex_modifier(self, args):
+        return args[0]
 
     def string_set(self, args):
         if len(args) == 1:

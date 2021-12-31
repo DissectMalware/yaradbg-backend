@@ -45,10 +45,10 @@ regexp_modifier:  WIDE
                     | PRIVATE
 
 hex_string: "{" hex_expression "}"
-hex_expression: (hex_byte | hex_ignore_range | hex_alt_bytes)*
+hex_expression: (hex_byte | hex_ignore_range | "(" hex_alt_bytes ")" )*
 hex_byte: /[0-9a-f?]{2,}/i
 hex_ignore_range: /\[\s*\d*(\s*-\s*\d*)?\s*\]/
-hex_alt_bytes: "(" hex_expression ("|" hex_expression)*  ")"
+hex_alt_bytes:  hex_expression ("|" hex_alt_bytes)*
 
 hex_modifiers: hex_modifier*
 hex_modifier:  PRIVATE
