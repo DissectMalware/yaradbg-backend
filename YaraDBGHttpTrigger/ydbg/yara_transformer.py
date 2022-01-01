@@ -23,6 +23,7 @@ class YaraTransformer(Transformer):
         self.yara_rules = {}
         self.rule_strings = {}
         self.condition_queue = []
+        self.hex_virtual_instructions = []
         self.string_queue = []
         self.imports = []
         self.includes = []
@@ -99,15 +100,53 @@ class YaraTransformer(Transformer):
         return args[0]
 
     def hex_string(self, args):
-        return args[0]
+        args[0].append('match')
+        return Token('hex_exp_bytecode', ';'.join(args[0]))
+
+    def hex_ignore_range(self, args):
+        inst = []
+        if len(args) == 1:
+            args.append(Token('DASH', '-'))
+            args.append(args[0])
+        elif len(args) == 2:
+            if args[0].value == "-":
+                args.insert(0, args[0])
+
+        if len(args) == 3:
+            if args[0].value != 0:
+                inst.append( f'nb ??,{args[0].value}')
+            for i in range(int(args[0].value), int(args[2].value)):
+                inst.append(f'split [+1],[+2]')
+                inst.append(f'b ??')
+        elif len(args) == 2:
+            if args[1].value == "-":
+                if args[0].value != 0:
+                    inst.append(f'nbyte ??,{args[0]};')
+                inst.append(f'split [+1],[+3]')
+                inst.append(f'b ??')
+                inst.append(f'jmp [-2]')
+        return inst
+
+    def hex_expression(self, args):
+        inst = []
+        for arg in args:
+            inst.extend(arg) if isinstance(arg, list) else inst.append(arg)
+        return inst
+
+    def hex_alt_bytes(self, args):
+        if len(args) == 1:
+            return args[0]
+        else:
+            inst = []
+            inst.append(f"split [+1],[+{len(args[0])+1}]")
+            inst.extend(args[0]) if isinstance(args[0], list) else inst.append(args[0])
+            inst.append(f'jmp [+{len(args[1])+1}]')
+            inst.extend(args[1]) if isinstance(args[1], list) else inst.append(args[1])
+            return inst
 
     def hex_byte(self, args):
         args[0].type ='hex_byte'
-        return args[0]
-
-
-
-
+        return f"b {args[0].value}"
 
     def hex_modifiers(self, args):
         return args

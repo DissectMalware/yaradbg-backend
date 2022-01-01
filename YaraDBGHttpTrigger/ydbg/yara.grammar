@@ -47,7 +47,7 @@ regexp_modifier:  WIDE
 hex_string: "{" hex_expression "}"
 hex_expression: (hex_byte | hex_ignore_range | "(" hex_alt_bytes ")" )*
 hex_byte: /[0-9a-f?]{2,}/i
-hex_ignore_range: /\[\s*\d*(\s*-\s*\d*)?\s*\]/
+hex_ignore_range:"[" ((INTEGER? DASH INTEGER?)| INTEGER) "]"
 hex_alt_bytes:  hex_expression ("|" hex_alt_bytes)*
 
 hex_modifiers: hex_modifier*
@@ -142,7 +142,7 @@ AND_OP: "&"
 OR_OP: "|"
 XOR_OP: "^"
 INCLUDE: "include"
-
+DASH: "-"
 
 ALL: "all"
 AND: "and"
@@ -196,6 +196,7 @@ IDENTIFIER: /[a-z_][a-z0-9_]*/i
 IDENTIFIER_WITH_WILDCARD: /[a-zA-Z_][_a-zA-Z0-9]*\*/
 INTEGER_FUNCTION.2: /u?int(8|16|32)(be)?/
 NUMBER: /0x[\da-fA-F]+|0o[0-7]+|\d+(MB|KB){0,1}/
+INTEGER: /\d+/
 DOUBLE.2: /\d+\.\d+/
 STRING_IDENTIFIER_WITH_WILDCARD: /\$[a-z0-9_]*\*/i
 STRING_IDENTIFIER: /\$[a-z0-9_]*/i
