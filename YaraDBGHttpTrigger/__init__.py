@@ -24,13 +24,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     if filesize < MAX_FILE_SIZE:
         filestream.seek(0)
-        data = filestream.read().decode('utf_8')
         try:
+            data = filestream.read().decode('utf_8')
             result = parser.parse(data)
         except UnexpectedToken as exp:
             return func.HttpResponse(f"Unexpected Token (line:{exp.line}, col:{exp.column}):\n{exp.get_context(data)}", status_code=422)
         except ParseError as exp:
             return func.HttpResponse(f"Parse Error (line:{exp.line}, col:{exp.column}):\n{exp.get_context(data)}", status_code=422)
+        except UnicodeDecodeError as exp:
+            return func.HttpResponse(f"Error reading the yara file (should be a valid utf-8 text file)", status_code=422)
 
         return func.HttpResponse(f"{result}")
     else:
