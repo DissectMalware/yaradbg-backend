@@ -110,7 +110,7 @@ class YaraTransformer(Transformer):
             args.append(args[0])
         elif len(args) == 2:
             if args[0].value == "-":
-                args.insert(0, args[0])
+                args.insert(0, Token('INTEGER', '0'))
 
         if len(args) == 3:
             if args[0].value != 0:
