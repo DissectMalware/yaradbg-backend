@@ -111,20 +111,10 @@ class YaraTransformer(Transformer):
         elif len(args) == 2:
             if args[0].value == "-":
                 args.insert(0, Token('INTEGER', '0'))
+            else:
+                args.append(Token('INTEGER', '0') -1)
 
-        if len(args) == 3:
-            if args[0].value != '0':
-                inst.append( f'nb ??,{args[0].value}')
-            for i in range(int(args[0].value), int(args[2].value)):
-                inst.append(f'split [+1],[+2]')
-                inst.append(f'b ??')
-        elif len(args) == 2:
-            if args[1].value == "-":
-                if args[0].value != '0':
-                    inst.append(f'nbyte ??,{args[0]};')
-                inst.append(f'split [+1],[+3]')
-                inst.append(f'b ??')
-                inst.append(f'jmp [-2]')
+        inst.append(f'ignore {args[0].value},{args[2].value}')
         return inst
 
     def hex_expression(self, args):

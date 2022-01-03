@@ -3,7 +3,7 @@ import os
 
 from lark.exceptions import UnexpectedToken, ParseError
 
-from YaraDBGHttpTrigger.ydbg import parser
+from yaraparser.ydbg import parser
 from .ydbg import *
 
 import azure.functions as func
