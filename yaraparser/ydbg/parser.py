@@ -6,7 +6,7 @@ from .yara_json_encoder import YaraEncoder
 
 
 def parse(yara_rule_str):
-    with open('YaraDBGHttpTrigger\ydbg\yara.grammar', 'r') as input_file:
+    with open('yaraparser\ydbg\yara.grammar', 'r') as input_file:
         yara_grammar = ''.join(input_file.readlines())
 
     transformer = YaraTransformer()
