@@ -36,7 +36,33 @@ string_modifier:   WIDE
                    | BASE64 ("(" text_string ")" )?
                    | BASE64_WIDE ("(" text_string ")" )?
 
-regex_exp: /\/([^\\\/\\]|\\[\\\/\\(\S| )])+\/[icxtsmpwnJUdbeqx]*/
+regex_exp: "/" re_alternative "/"
+re_alternative: re_concatenation ("|" re_alternative?)*
+re_concatenation: repeat re_concatenation*
+repeat: re_single RE_STAR RE_QUESTION_MARK?
+        | re_single RE_PLUS RE_QUESTION_MARK?
+        | re_single RE_QUESTION_MARK? RE_QUESTION_MARK?
+        | re_single re_range RE_QUESTION_MARK?
+        | WORD_BOUNDARY
+        | NON_WORD_BOUNDARY
+        | RE_BEGIN
+        | RE_END
+
+re_range: "{" (INTEGER? "," INTEGER?) | INTEGER
+
+re_single: "(" re_alternative ")"
+            | ANY_CHAR
+            | CHAR
+            | WORD_CHAR
+            | NON_WORD_CHAR
+            | SPACE
+            | NON_SPACE
+            | DIGIT
+            | NON_DIGIT
+            | class
+
+class: "[" RE_CLASS_NEG (CHAR | (CHAR "-" CHAR))* "]"
+
 regexp_modifiers: regexp_modifier*
 regexp_modifier:  WIDE
                     | ASCII
@@ -203,6 +229,26 @@ STRING_IDENTIFIER: /\$[a-z0-9_]*/i
 STRING_COUNT: /\#[a-z0-9_]*/i
 STRING_OFFSET: /\@[a-z0-9_]*/i
 STRING_LENGTH: /\![a-z0-9_]*/i
+
+// Regex related tokens
+ANY_CHAR: "."
+CHAR: /[^\\\[\(\)\|\$\.\^\+\*\?]/
+WORD_CHAR: "\w"
+NON_WORD_CHAR: "\W"
+SPACE: "\s"
+NON_SPACE: "\S"
+DIGIT: "\d"
+NON_DIGIT: "\D"
+WORD_BOUNDARY: "\b"
+NON_WORD_BOUNDARY: "\B"
+RE_QUESTION_MARK: "?"
+RE_STAR: "*"
+RE_PLUS: "+"
+RE_BEGIN: "^"
+RE_END: "$"
+RE_CLASS_NEG: "^"
+
+
 
 %import common.WS
 %import common.CPP_COMMENT
