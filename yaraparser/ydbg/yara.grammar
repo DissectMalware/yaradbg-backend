@@ -15,7 +15,7 @@ identifier:  IDENTIFIER
             | identifier "(" arguments ")"
 index: "[" primary_expression "]"
 tags: (":" tag_list)?
-tag_list: identifier+
+tag_list: IDENTIFIER+
 meta: (META ":" meta_declarations)?
 meta_declarations: meta_declaration+
 meta_declaration: IDENTIFIER "=" (text_string|("-")?NUMBER|TRUE|FALSE)

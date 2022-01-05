@@ -1,8 +1,8 @@
 import time
 import json
 import os
-from yara_transformer import *
-from yara_json_encoder import YaraEncoder
+from .yara_transformer import *
+from .yara_json_encoder import YaraEncoder
 
 
 def parse(yara_rule_str):

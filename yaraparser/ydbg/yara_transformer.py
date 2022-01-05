@@ -198,19 +198,6 @@ class YaraTransformer(Transformer):
             self.condition_queue.append(task)
         return task
 
-    def other_primary_expression(self, args):
-        task = None
-        if len(args) == 2:
-            task = Task(self.get_task_id(),
-                        Token('index', 'index'),
-                        args)
-        elif len(args) == 3:
-            raise NotImplementedError("other_primary_expression: STRING_COUNT IN range")
-        else:
-            task = args
-        return task
-
-
     def identifier(self, args):
         task = None
         if len(args) == 1 and isinstance(args[0], Token):
@@ -259,7 +246,8 @@ class YaraTransformer(Transformer):
     def iterator(self, args):
         task = Task(self.get_task_id(),
                     Token("iterator", "iterator"),
-                    self.get_operand(args[0]))
+                    [self.get_operand(args[0])])
+        self.condition_queue.append(task)
         return task
 
     def arguments_list(self, args):
@@ -270,27 +258,48 @@ class YaraTransformer(Transformer):
     def str_cmp_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
-    def and_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
-
-    def and_primary_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
-
     def expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def and_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
     def not_expression(self, args):
         return self.add_new_unary_op_tasks(args)
 
+    def primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def xor_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def and_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def shift_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
 
     def add_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def multiplication_primary_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
     def unary_primary_expression(self, args):
         return self.add_new_unary_op_tasks(args)
 
-    def multiplication_primary_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
+    def other_primary_expression(self, args):
+        task = None
+        if len(args) == 2:
+            task = Task(self.get_task_id(),
+                        Token('index', 'index'),
+                        [self.get_operand(args[0]), self.get_operand(args[1])])
+            self.condition_queue.append(task)
+        elif len(args) == 3:
+            raise NotImplementedError("other_primary_expression: STRING_COUNT IN range")
+        else:
+            task = args
+        return task
 
     def range(self, args):
         return self.add_new_task(args)
