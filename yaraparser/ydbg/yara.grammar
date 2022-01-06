@@ -70,7 +70,7 @@ regexp_modifier:  WIDE
                     | FULLWORD
                     | PRIVATE
 
-hex_string: "{" hex_expression "}"
+hex_string: OPEN_BRACKET hex_expression CLOSE_BRACKET
 hex_expression: (hex_byte | hex_ignore_range | "(" hex_alt_bytes ")" )*
 hex_byte: /[0-9a-f?]{2,}/i
 hex_ignore_range:"[" ((INTEGER? DASH INTEGER?)| INTEGER) "]"
@@ -169,6 +169,8 @@ OR_OP: "|"
 XOR_OP: "^"
 INCLUDE: "include"
 DASH: "-"
+OPEN_BRACKET: "{"
+CLOSE_BRACKET: "}"
 
 ALL: "all"
 AND: "and"

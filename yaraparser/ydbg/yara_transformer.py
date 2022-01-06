@@ -10,6 +10,36 @@ class Task:
         self.operands = operands
         self.id = task_id
 
+    def start_pos(self):
+        if isinstance(self.operator, Token):
+            min_pos = self.operator.start_pos
+            start_loc = 0
+        else:
+            min_pos = self.operands[0].start_pos
+            start_loc = 1
+        for i in range(start_loc, len(self.operands)):
+            if isinstance(self.operands[i], Token) is False or isinstance(min_pos, int) is False:
+                p  =1
+            if self.operands[i].start_pos < min_pos:
+                min_pos = self.operands[i].start_pos
+        return min_pos
+
+    def end_pos(self):
+        if isinstance(self.operator, Token):
+            max_pos = self.operator.end_pos
+            start_loc = 0
+        else:
+            max_pos = self.operands[0].end_pos
+            start_loc = 1
+        for i in range(start_loc, len(self.operands)):
+            if isinstance(self.operands[i], Token) is False or isinstance(max_pos, int) is False:
+                p  =1
+
+            if self.operands[i].end_pos > max_pos:
+                max_pos = self.operands[i].end_pos
+        return max_pos
+
+
 
 class String:
     def __init__(self, string_name, string_value, modifiers):
@@ -100,8 +130,8 @@ class YaraTransformer(Transformer):
         return args[0]
 
     def hex_string(self, args):
-        args[0].append('match')
-        return Token('hex_exp_bytecode', ';'.join(args[0]))
+        args[1].append('match')
+        return Token('hex_exp_bytecode', ';'.join(args[0]), start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
 
     def hex_ignore_range(self, args):
         inst = []
@@ -212,10 +242,15 @@ class YaraTransformer(Transformer):
                 if args[1].data.value == 'index':
                     task = Task(self.get_task_id(),
                                 "index",
-                                [Token("Task", args[0].id), self.get_operand(args[1].children[0])])
+                                [Token("Task", args[0].id, 
+                                    start_pos=args[0].start_pos(), 
+                                    end_pos=args[0].end_pos()), 
+                                self.get_operand(args[1].children[0])])
                     self.condition_queue.append(task)
                 elif args[1].data.value == 'arguments':
-                    operands = [Token("Task", args[0].id)]
+                    operands = [Token("Task", args[0].id, 
+                                    start_pos=args[0].start_pos(), 
+                                    end_pos=args[0].end_pos())]
                     if args[1].children:
                         operands.extend([self.get_operand(x) for x in args[1].children[0]])
                     task = Task(self.get_task_id(),
@@ -245,7 +280,7 @@ class YaraTransformer(Transformer):
 
     def iterator(self, args):
         task = Task(self.get_task_id(),
-                    Token("iterator", "iterator"),
+                    Token("iterator", "iterator", start_pos=self.get_operand(args[0]).start_pos, end_pos=self.get_operand(args[0]).end_pos),
                     [self.get_operand(args[0])])
         self.condition_queue.append(task)
         return task
@@ -292,7 +327,7 @@ class YaraTransformer(Transformer):
         task = None
         if len(args) == 2:
             task = Task(self.get_task_id(),
-                        Token('index', 'index'),
+                        Token('index', 'index', start_pos=self.get_operand(args[0]).start_pos, end_pos=self.get_operand(args[1]).end_pos),
                         [self.get_operand(args[0]), self.get_operand(args[1])])
             self.condition_queue.append(task)
         elif len(args) == 3:
@@ -378,7 +413,7 @@ class YaraTransformer(Transformer):
     def get_operand(self, operand):
         res = operand
         if isinstance(operand, Task):
-            res = Token("Task", operand.id)
+            res = Token("Task", operand.id, start_pos=operand.start_pos(), end_pos=operand.end_pos())
         return res
 
     def get_task_id(self):
