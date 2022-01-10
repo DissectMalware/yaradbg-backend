@@ -1,3 +1,4 @@
+from sys import setswitchinterval
 from lark import Lark, Transformer
 from lark.exceptions import ParseError
 from lark.lexer import Token
@@ -60,6 +61,25 @@ class YaraTransformer(Transformer):
         self.tasks = {}
         self._task_id = 0
 
+        self._word_chars = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03,
+            0xFE, 0xFF, 0xFF, 0x87, 0xFE, 0xFF, 0xFF, 0x07,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
+
+        self._space_chars = [
+            0x00, 0x3E, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
+
+        self._digit_chars = [ 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,]
+
+
     def rules(self, args):
         p = 1
 
@@ -103,8 +123,12 @@ class YaraTransformer(Transformer):
         return args[0]
 
     def regex_exp(self, args):
-        args[0].type = "regex_expression"
-        return args[0]
+
+        args[1].type = "regex_expression"
+        args[1].start_pos = args[0].start_pos
+        args[1].end_pos = args[2].end_pos
+        
+        return args[1]
 
     def regexp_modifiers(self, args):
         return args
@@ -131,7 +155,7 @@ class YaraTransformer(Transformer):
 
     def hex_string(self, args):
         args[1].append('match')
-        return Token('hex_exp_bytecode', ';'.join(args[0]), start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
+        return Token('hex_exp_bytecode', ';'.join(args[1]), start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
 
     def hex_ignore_range(self, args):
         inst = []
@@ -339,7 +363,241 @@ class YaraTransformer(Transformer):
     def range(self, args):
         return self.add_new_task(args)
 
+
+    ####################### Regex functions #############################
+    def re_alternative(self, args):
+        res = Token('re_alternative', [])
+
+        if len(args) == 1:
+            res.value = args[0].value
+        else:
+            res = Token('re_alternative', [])
+
+            res.value.append(f'splitstay [+{len(args[0].value)+2}]')
+            res.value.extend(args[0].value)
+            res.value.append(f'jmp [+{len(args[1].value)+1}]')
+            res.value.extend(args[1].value)
+
+        return res
+
+    def re_concatenation(self, args):
+        val = []
+        for i in args:
+            val.extend(i.value)
+        return Token('re_concatenation', val)
+
+    def re_repeat(self, args):
+        res = Token('repeat', [])
+        if args[0].type == 're_single':
+            if len(args)>1:
+                range = False
+                if args[1].type == 're_range':
+                    start, end = args[1].value
+                    if start == '0' and end == 'end':
+                        args.type = 'RE_STAR'
+                    elif start == '1' and end == 'end':
+                        args.type = 'RE_PLUS'
+                    else:
+                        range = True
+                        start = int(start)
+                        res.value.extend(args[0].value)
+                        res.value.append(f'jmpn [-{len(args[0].value)}], {start}')
+                        if end == 'end':
+                            if len(args) == 3:
+                            # none greedy
+                                res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
+                                res.value.extend(args[0].value)
+                                res.value.append(f'jmp [-{len(args[0].value)+1}]')
+                            else:
+                                # greedy
+                                res.value.append(f'splitstay [+{len(args[0].value)+2}]')
+                                res.value.extend(args[0].value)
+                                res.value.append(f'jmp [-{len(args[0].value)+1}]')
+                        else:
+                            end = int(end)
+                            if start < end:
+                                end = int(end)
+                                if len(args) == 3:
+                                # none greedy
+                                    res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
+                                    res.value.extend(args[0].value)
+                                    res.value.append(f'jmpn [-{len(args[0].value)+1}], {end - start}')
+                                else:
+                                    # greedy
+                                    res.value.append(f'splitstay [+{len(args[0].value)+2}]')
+                                    res.value.extend(args[0].value)
+                                    res.value.append(f'jmpn [-{len(args[0].value)+1}], {end - start}')
+
+
+                if range is False:
+                    if args[1].type == 'RE_PLUS':
+                        none_greedy = False
+                        if len(args) == 3:
+                            # none greedy
+                            res.value.extend(args[0].value)
+                            res.value.append(f'splitstay [-{len(args[0].value)}]')
+                        else:
+                            # greedy
+                            res.value.extend(args[0].value)
+                            res.value.append(f'splitjmp [-{len(args[0].value)}]')
+                    elif args[1].type == 'RE_STAR':
+                        none_greedy = False
+                        if len(args) == 3:
+                            # none greedy
+                            res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
+                            res.value.extend(args[0].value)
+                            res.value.append(f'jmp [-{len(args[0].value)+1}]')
+                        else:
+                            # greedy
+                            res.value.append(f'splitstay [+{len(args[0].value)+2}]')
+                            res.value.extend(args[0].value)
+                            res.value.append(f'jmp [-{len(args[0].value)+1}]')
+                    elif args[1].type == 'RE_QUESTION_MARK':
+                        none_greedy = False
+                        if len(args) == 3:
+                            # none greedy
+                            res.value.append(f'splitjmp [+{len(args[0].value)+1}]')
+                            res.value.extend(args[0].value)
+                        else:
+                            # greedy
+                            res.value.append(f'splitstay [+{len(args[0].value)+1}]')
+                            res.value.extend(args[0].value)
+            else:
+                # repeat -> re_single
+                
+                return args[0]
+        else:
+            raise Exception(f'[re_repeat] {args[0].type} not implemented')
+        return res
+
+    def re_range(self, args):
+        start = None
+        end = None
+        if len(args) == 1:
+            if args[0].name == 'COMMA':
+                start = 0
+                end = 'end'
+            else:
+                start = args[0].value
+                end = start
+        elif len(args) == 2:
+            if args[0].name == 'COMMA':
+                start = 0
+                end = args[1].value
+            else:
+                start = args[0].value
+                end = 'end'
+        else:
+            start = args[0].value
+            end = args[2].value
+
+        return Token('re_range', [start, end] )
+                
+
+    def re_single(self, args):
+        cmd = []
+        if args[0].type == 'char_class' or \
+            (args[0].type == 're_single_char' and isinstance(args[0].value, list)):
+            cmd.append(f"chrc {','.join([hex(byte).replace('0x','') for byte in args[0].value])};")
+        elif args[0].type == 're_single_char':
+            cmd.append(f"chr {hex(args[0].value).replace('0x','')};")
+        else:
+            cmd = args[0].value
+        
+        return Token('re_single', cmd)
+
+    def escaped_char(self, args):
+        if len(args[1]) == 3 and args[1][0] == 'x':
+            return int(args[1][1]+args[1][2], base=16)
+        elif args[1] == 'a':
+            return ord('\a')
+        elif args[1] == 't':
+            return ord('\t')
+        elif args[1] == 'n':
+            return ord('\n')
+        elif args[1] == 'f':
+            return ord('\f') 
+        elif args[1] == 'r':
+            return ord('\r')
+        else:
+            return ord(args[1].value)
+
+    def re_single_char(self, args):
+        val = None
+        if isinstance(args[0], int):
+            val = args[0]
+        elif(args[0].value == '.'):
+            val = [0xff] * 32
+        elif(args[0].value == '\\w'):
+            val = self._word_chars.copy()
+        elif(args[0].value == '\\W'):
+            val = self.not_bitmap(self._word_chars.copy())
+        elif(args[0].value == '\\s'):
+            val = self._space_chars.copy()
+        elif(args[0].value == '\\S'):
+            val = self.not_bitmap(self._space_chars.copy())
+        elif(args[0].value == '\\d'):
+            val = self._digit_chars.copy()
+        elif(args[0].value == '\\D'):
+            val = self.not_bitmap(self._digit_chars.copy())
+        else:
+            val = ord(args[0].value)
+        return Token('re_single_char', val)
+
+    def char_class(self, args):
+        negation = False
+        index = 0
+        if args[0] == '^':
+            negation = False
+            index = 1
+
+        state = 0
+        bitmap = [0] * 32
+        while index < len(args):
+            current_char = args[index].value
+            if isinstance(current_char, int):
+                    self.add_to_bitmap(bitmap, current_char)
+                    index += 1
+            elif isinstance(current_char, list) and len(current_char) == 32:
+                self.or_bitmaps(bitmap, current_char)
+                index += 1
+            elif( isinstance(current_char, str) and index+1 < len(args) -1 and args[index+1] == '-'):
+                    start = ord(current_char)
+                    end = ord(args[index+2].value)
+                    range_bitmap = self.get_bitmap(start, end)
+                    self.or_bitmaps(bitmap, range_bitmap)
+                    index += 3
+            else:
+                raise Exception('char_class: Unknown token')
+
+        return Token('char_class', bitmap)
+
+                
     ##################### internal functions ############################
+    def get_bitmap(self, range_start, range_end):
+        bitmap = [0]* 32
+        for i in range(range_start, range_end +1):
+            self.add_to_bitmap(bitmap, i)
+        return bitmap
+
+    def or_bitmaps(self, base, new_bitmap):
+        if(len(base) != 32 or len(new_bitmap)!= 32):
+            raise Exception('[or_bitmaps] arguments must be bitmap arrays (len(array)==32)')
+
+        for i in range(0, 32):
+            base[i] |= new_bitmap[i]
+
+    def not_bitmap(self, bitmap):
+        if(len(bitmap) != 32 ):
+            raise Exception('[not_bitmaps] argument must be a bitmap array (len(array)==32)')
+
+        for i in range(0, 32):
+            bitmap[i] ^= 0xFF
+
+    def add_to_bitmap(self, bitmap, number):
+        bitmap[number>>3] |= 1<<(number&7)
+
+
     def add_new_binary_op_tasks(self, args):
         task = None
         if len(args) == 3:

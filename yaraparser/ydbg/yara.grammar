@@ -36,10 +36,10 @@ string_modifier:   WIDE
                    | BASE64 ("(" text_string ")" )?
                    | BASE64_WIDE ("(" text_string ")" )?
 
-regex_exp: "/" re_alternative "/"
+regex_exp: SLASH re_alternative SLASH
 re_alternative: re_concatenation ("|" re_alternative?)*
-re_concatenation: repeat re_concatenation*
-repeat: re_single RE_STAR RE_QUESTION_MARK?
+re_concatenation: re_repeat re_concatenation*
+re_repeat: re_single RE_STAR RE_QUESTION_MARK?
         | re_single RE_PLUS RE_QUESTION_MARK?
         | re_single RE_QUESTION_MARK? RE_QUESTION_MARK?
         | re_single re_range RE_QUESTION_MARK?
@@ -48,10 +48,13 @@ repeat: re_single RE_STAR RE_QUESTION_MARK?
         | RE_BEGIN
         | RE_END
 
-re_range: "{" ((INTEGER? "," INTEGER?) | INTEGER) "}"
+re_range: "{" ((INTEGER? COMMA INTEGER?) | INTEGER) "}"
 
 re_single: "(" re_alternative ")"
-            | ANY_CHAR
+            | re_single_char
+            | char_class
+
+re_single_char: ANY_CHAR
             | CHAR
             | escaped_char
             | WORD_CHAR
@@ -60,11 +63,10 @@ re_single: "(" re_alternative ")"
             | NON_SPACE
             | DIGIT
             | NON_DIGIT
-            | class
 
-escaped_char: DIVISION /(x\d\d|.)/
+escaped_char: DIVISION /(x[\da-fA-F]{2}|.)/
 
-class: "[" RE_CLASS_NEG? (CHAR | (CHAR "-" CHAR))* "]"
+char_class: "[" RE_CLASS_NEG? (re_single_char | (CHAR DASH CHAR))* "]"
 
 regexp_modifiers: regexp_modifier*
 regexp_modifier:  WIDE
@@ -174,6 +176,8 @@ INCLUDE: "include"
 DASH: "-"
 OPEN_BRACKET: "{"
 CLOSE_BRACKET: "}"
+COMMA: ","
+SLASH: "/"
 
 ALL: "all"
 AND: "and"
