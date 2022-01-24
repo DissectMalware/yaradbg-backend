@@ -124,7 +124,8 @@ class YaraTransformer(Transformer):
 
     def regex_exp(self, args):
 
-        args[1].type = "regex_expression"
+        args[1].type = "regex_expression_bytecode"
+        args[1].value.append('match')
         args[1].start_pos = args[0].start_pos
         args[1].end_pos = args[2].end_pos
         
@@ -155,7 +156,7 @@ class YaraTransformer(Transformer):
 
     def hex_string(self, args):
         args[1].append('match')
-        return Token('hex_exp_bytecode', ';'.join(args[1]), start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
+        return Token('hex_exp_bytecode', args[1], start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
 
     def hex_ignore_range(self, args):
         inst = []
@@ -190,7 +191,7 @@ class YaraTransformer(Transformer):
 
     def hex_byte(self, args):
         args[0].type ='hex_byte'
-        return f"b {args[0].value}"
+        return f"chr {args[0].value}"
 
     def hex_modifiers(self, args):
         return args
@@ -373,7 +374,7 @@ class YaraTransformer(Transformer):
         else:
             res = Token('re_alternative', [])
 
-            res.value.append(f'splitstay [+{len(args[0].value)+2}]')
+            res.value.append(f'splitstay [+1],[+{len(args[0].value)+2}]')
             res.value.extend(args[0].value)
             res.value.append(f'jmp [+{len(args[1].value)+1}]')
             res.value.extend(args[1].value)
@@ -391,77 +392,21 @@ class YaraTransformer(Transformer):
         if args[0].type == 're_single':
             if len(args)>1:
                 range = False
+                instructions = args[0].value
+                is_greedy = len(args)==3
                 if args[1].type == 're_range':
                     start, end = args[1].value
-                    if start == '0' and end == 'end':
-                        args.type = 'RE_STAR'
-                    elif start == '1' and end == 'end':
-                        args.type = 'RE_PLUS'
-                    else:
-                        range = True
-                        start = int(start)
-                        res.value.extend(args[0].value)
-                        res.value.append(f'jmpn [-{len(args[0].value)}], {start}')
-                        if end == 'end':
-                            if len(args) == 3:
-                            # none greedy
-                                res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
-                                res.value.extend(args[0].value)
-                                res.value.append(f'jmp [-{len(args[0].value)+1}]')
-                            else:
-                                # greedy
-                                res.value.append(f'splitstay [+{len(args[0].value)+2}]')
-                                res.value.extend(args[0].value)
-                                res.value.append(f'jmp [-{len(args[0].value)+1}]')
-                        else:
-                            end = int(end)
-                            if start < end:
-                                end = int(end)
-                                if len(args) == 3:
-                                # none greedy
-                                    res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
-                                    res.value.extend(args[0].value)
-                                    res.value.append(f'jmpn [-{len(args[0].value)+1}], {end - start}')
-                                else:
-                                    # greedy
-                                    res.value.append(f'splitstay [+{len(args[0].value)+2}]')
-                                    res.value.extend(args[0].value)
-                                    res.value.append(f'jmpn [-{len(args[0].value)+1}], {end - start}')
-
-
-                if range is False:
-                    if args[1].type == 'RE_PLUS':
-                        none_greedy = False
-                        if len(args) == 3:
-                            # none greedy
-                            res.value.extend(args[0].value)
-                            res.value.append(f'splitstay [-{len(args[0].value)}]')
-                        else:
-                            # greedy
-                            res.value.extend(args[0].value)
-                            res.value.append(f'splitjmp [-{len(args[0].value)}]')
-                    elif args[1].type == 'RE_STAR':
-                        none_greedy = False
-                        if len(args) == 3:
-                            # none greedy
-                            res.value.append(f'splitjmp [+{len(args[0].value)+2}]')
-                            res.value.extend(args[0].value)
-                            res.value.append(f'jmp [-{len(args[0].value)+1}]')
-                        else:
-                            # greedy
-                            res.value.append(f'splitstay [+{len(args[0].value)+2}]')
-                            res.value.extend(args[0].value)
-                            res.value.append(f'jmp [-{len(args[0].value)+1}]')
-                    elif args[1].type == 'RE_QUESTION_MARK':
-                        none_greedy = False
-                        if len(args) == 3:
-                            # none greedy
-                            res.value.append(f'splitjmp [+{len(args[0].value)+1}]')
-                            res.value.extend(args[0].value)
-                        else:
-                            # greedy
-                            res.value.append(f'splitstay [+{len(args[0].value)+1}]')
-                            res.value.extend(args[0].value)
+                    instructions = self.generate_range_program(instructions, start, end, is_greedy) 
+                elif args[1].type == 'RE_PLUS':
+                    instructions = self.generate_plus_program(instructions, is_greedy)
+                elif args[1].type == 'RE_STAR':
+                    instructions = self.generate_star_program(instructions, is_greedy)
+                elif args[1].type == 'RE_QUESTION_MARK':
+                    instructions = self.generate_question_mark_program(instructions, is_greedy)
+                else:
+                    raise Exception(f"[re_repeat] {args[1].type} is not implemented")
+       
+                res.value.extend(instructions)
             else:
                 # repeat -> re_single
                 
@@ -470,18 +415,74 @@ class YaraTransformer(Transformer):
             raise Exception(f'[re_repeat] {args[0].type} not implemented')
         return res
 
+    def generate_question_mark_program(self, instructions, greedy):
+        return self.generate_range_program(instructions, 0, 1, greedy)
+    
+    def generate_plus_program(self, instructions, greedy):
+        # result = []
+        # if not greedy:
+        #     # none greedy
+        #     result.extend(instructions)
+        #     result.append(f'splitstay [+1],[-{len(instructions)}]')
+        # else:
+        #     # greedy
+        #     result.extend(instructions)
+        #     result.append(f'splitjmp [+1],[-{len(instructions)}]')
+        return self.generate_range_program(instructions, 1, 'end', greedy)
+
+    def generate_star_program(self, instructions, greedy):
+        result = []
+        if not greedy:
+            # none greedy
+            result.append(f'splitjmp [+1],[+{len(instructions)+2}]')
+            result.extend(instructions)
+            result.append(f'jmp [-{len(instructions)+1}]')
+        else:
+            # greedy
+            result.append(f'splitstay [+1],[+{len(instructions)+2}]')
+            result.extend(instructions)
+            result.append(f'jmp [-{len(instructions)+1}]')
+        return result
+
+    def generate_range_program(self, instructions, start, end, greedy):
+
+        result = []
+        start = int(start) if isinstance(start, str) else start
+
+        for i in range(start):
+            result.extend(instructions)
+
+        tmp = list()
+        if(end != 'end'):
+            end = int(end) if isinstance(end, str) else end
+            for i in range(end - start, 0, -1):
+                if not greedy:
+                    # none greedy
+                    tmp.append(f'splitjmp [+1],[+{(len(instructions)+1)*(i)}]')
+                else:
+                    # greedy
+                    tmp.append( f'splitstay [+1],[+{(len(instructions)+1)*(i)}]')
+            for i in range(end - start):
+                tmp.extend(instructions)    
+
+        else:
+            tmp = self.generate_star_program(instructions, greedy)
+
+        result.extend(tmp)
+        return result
+
     def re_range(self, args):
         start = None
         end = None
         if len(args) == 1:
-            if args[0].name == 'COMMA':
+            if args[0].type == 'COMMA':
                 start = 0
                 end = 'end'
             else:
                 start = args[0].value
                 end = start
         elif len(args) == 2:
-            if args[0].name == 'COMMA':
+            if args[0].type == 'COMMA':
                 start = 0
                 end = args[1].value
             else:
