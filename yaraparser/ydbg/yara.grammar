@@ -15,7 +15,7 @@ identifier:  IDENTIFIER
             | identifier "(" arguments ")"
 index: "[" primary_expression "]"
 tags: (":" tag_list)?
-tag_list: identifier+
+tag_list: IDENTIFIER+
 meta: (META ":" meta_declarations)?
 meta_declarations: meta_declaration+
 meta_declaration: IDENTIFIER "=" (text_string|("-")?NUMBER|TRUE|FALSE)
@@ -36,7 +36,38 @@ string_modifier:   WIDE
                    | BASE64 ("(" text_string ")" )?
                    | BASE64_WIDE ("(" text_string ")" )?
 
-regex_exp: /\/([^\\\/\\]|\\[\\\/\\(\S| )])+\/[icxtsmpwnJUdbeqx]*/
+regex_exp: SLASH re_alternative SLASH
+re_alternative: re_concatenation ("|" re_alternative?)*
+re_concatenation: re_repeat re_concatenation*
+re_repeat: re_single RE_STAR RE_QUESTION_MARK?
+        | re_single RE_PLUS RE_QUESTION_MARK?
+        | re_single RE_QUESTION_MARK? RE_QUESTION_MARK?
+        | re_single re_range RE_QUESTION_MARK?
+        | WORD_BOUNDARY
+        | NON_WORD_BOUNDARY
+        | RE_BEGIN
+        | RE_END
+
+re_range: "{" ((INTEGER? COMMA INTEGER?) | INTEGER) "}"
+
+re_single: "(" re_alternative ")"
+            | re_single_char
+            | char_class
+
+re_single_char: ANY_CHAR
+            | CHAR
+            | escaped_char
+            | WORD_CHAR
+            | NON_WORD_CHAR
+            | SPACE
+            | NON_SPACE
+            | DIGIT
+            | NON_DIGIT
+
+escaped_char: DIVISION /(x[\da-fA-F]{2}|.)/
+
+char_class: "[" RE_CLASS_NEG? (re_single_char | (CHAR DASH CHAR))* "]"
+
 regexp_modifiers: regexp_modifier*
 regexp_modifier:  WIDE
                     | ASCII
@@ -44,7 +75,7 @@ regexp_modifier:  WIDE
                     | FULLWORD
                     | PRIVATE
 
-hex_string: "{" hex_expression "}"
+hex_string: OPEN_BRACKET hex_expression CLOSE_BRACKET
 hex_expression: (hex_byte | hex_ignore_range | "(" hex_alt_bytes ")" )*
 hex_byte: /[0-9a-f?]{2,}/i
 hex_ignore_range:"[" ((INTEGER? DASH INTEGER?)| INTEGER) "]"
@@ -143,6 +174,10 @@ OR_OP: "|"
 XOR_OP: "^"
 INCLUDE: "include"
 DASH: "-"
+OPEN_BRACKET: "{"
+CLOSE_BRACKET: "}"
+COMMA: ","
+SLASH: "/"
 
 ALL: "all"
 AND: "and"
@@ -203,6 +238,26 @@ STRING_IDENTIFIER: /\$[a-z0-9_]*/i
 STRING_COUNT: /\#[a-z0-9_]*/i
 STRING_OFFSET: /\@[a-z0-9_]*/i
 STRING_LENGTH: /\![a-z0-9_]*/i
+
+// Regex related tokens
+ANY_CHAR: "."
+CHAR: /[^\\\[\(\)\|\$\.\^\+\*\?]/
+WORD_CHAR: "\w"
+NON_WORD_CHAR: "\W"
+SPACE: "\s"
+NON_SPACE: "\S"
+DIGIT: "\d"
+NON_DIGIT: "\D"
+WORD_BOUNDARY: "\b"
+NON_WORD_BOUNDARY: "\B"
+RE_QUESTION_MARK: "?"
+RE_STAR: "*"
+RE_PLUS: "+"
+RE_BEGIN: "^"
+RE_END: "$"
+RE_CLASS_NEG: "^"
+
+
 
 %import common.WS
 %import common.CPP_COMMENT

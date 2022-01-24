@@ -5,7 +5,9 @@ from .yara_transformer import *
 class YaraEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Task):
-            operands = [{'name': x.type, 'val': x.value, 'line': x.line, 'col': x.column} for x in obj.operands]
+            for i in obj.operands:
+                p = 1
+            operands = [{'name': x.type, 'val': x.value, 'start_pos': x.start_pos, 'end_pos': x.end_pos} for x in obj.operands]
             return {'id': obj.id, 'op': obj.operator, 'args': operands}
         elif isinstance(obj, String):
             modifiers = [{'modifier': x.value} for x in obj.modifiers]
@@ -30,5 +32,5 @@ class YaraEncoder(json.JSONEncoder):
                 root['children'].append(self.tree_to_dict(child))
             else:
                 root['children'].append(
-                    {'name': child.type, 'val': child.value, 'line': child.line, 'col': child.column})
+                    {'name': child.type, 'val': child.value, 'start_pos': child.start_pos, 'col': child.end_pos})
         return root

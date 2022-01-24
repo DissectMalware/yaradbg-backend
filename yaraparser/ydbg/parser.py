@@ -6,14 +6,18 @@ from .yara_json_encoder import YaraEncoder
 
 
 def parse(yara_rule_str):
-    with open('yaraparser\ydbg\yara.grammar', 'r') as input_file:
-        yara_grammar = ''.join(input_file.readlines())
+    minified_json_str =''
+    try:
+        with open('yaraparser/ydbg/yara.grammar', 'r') as input_file:
+            yara_grammar = ''.join(input_file.readlines())
 
-    transformer = YaraTransformer()
-    yara_parser = Lark(yara_grammar, parser='lalr', debug=True, transformer=transformer)
-    yara_parsed_tree = yara_parser.parse(yara_rule_str)
+        transformer = YaraTransformer()
+        yara_parser = Lark(yara_grammar, parser='lalr', debug=True, transformer=transformer)
+        yara_parsed_tree = yara_parser.parse(yara_rule_str)
 
-    minified_json_str = json.dumps(transformer, cls=YaraEncoder, indent=None, separators=(',', ':'))
+        minified_json_str = json.dumps(transformer, cls=YaraEncoder, indent=None, separators=(',', ':'))
+    except Exception as exp:
+        minified_json_str = "error reading grammar"
 
     return minified_json_str
 

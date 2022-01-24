@@ -1,3 +1,4 @@
+from sys import setswitchinterval
 from lark import Lark, Transformer
 from lark.exceptions import ParseError
 from lark.lexer import Token
@@ -9,6 +10,36 @@ class Task:
         self.operator = operator
         self.operands = operands
         self.id = task_id
+
+    def start_pos(self):
+        if isinstance(self.operator, Token):
+            min_pos = self.operator.start_pos
+            start_loc = 0
+        else:
+            min_pos = self.operands[0].start_pos
+            start_loc = 1
+        for i in range(start_loc, len(self.operands)):
+            if isinstance(self.operands[i], Token) is False or isinstance(min_pos, int) is False:
+                p  =1
+            if self.operands[i].start_pos < min_pos:
+                min_pos = self.operands[i].start_pos
+        return min_pos
+
+    def end_pos(self):
+        if isinstance(self.operator, Token):
+            max_pos = self.operator.end_pos
+            start_loc = 0
+        else:
+            max_pos = self.operands[0].end_pos
+            start_loc = 1
+        for i in range(start_loc, len(self.operands)):
+            if isinstance(self.operands[i], Token) is False or isinstance(max_pos, int) is False:
+                p  =1
+
+            if self.operands[i].end_pos > max_pos:
+                max_pos = self.operands[i].end_pos
+        return max_pos
+
 
 
 class String:
@@ -29,6 +60,25 @@ class YaraTransformer(Transformer):
         self.includes = []
         self.tasks = {}
         self._task_id = 0
+
+        self._word_chars = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03,
+            0xFE, 0xFF, 0xFF, 0x87, 0xFE, 0xFF, 0xFF, 0x07,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
+
+        self._space_chars = [
+            0x00, 0x3E, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
+
+        self._digit_chars = [ 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,]
+
 
     def rules(self, args):
         p = 1
@@ -73,8 +123,13 @@ class YaraTransformer(Transformer):
         return args[0]
 
     def regex_exp(self, args):
-        args[0].type = "regex_expression"
-        return args[0]
+
+        args[1].type = "regex_expression_bytecode"
+        args[1].value.append('match')
+        args[1].start_pos = args[0].start_pos
+        args[1].end_pos = args[2].end_pos
+        
+        return args[1]
 
     def regexp_modifiers(self, args):
         return args
@@ -100,8 +155,8 @@ class YaraTransformer(Transformer):
         return args[0]
 
     def hex_string(self, args):
-        args[0].append('match')
-        return Token('hex_exp_bytecode', ';'.join(args[0]))
+        args[1].append('match')
+        return Token('hex_exp_bytecode', args[1], start_pos=args[0].start_pos, end_pos=args[-1].end_pos)
 
     def hex_ignore_range(self, args):
         inst = []
@@ -136,7 +191,7 @@ class YaraTransformer(Transformer):
 
     def hex_byte(self, args):
         args[0].type ='hex_byte'
-        return f"b {args[0].value}"
+        return f"chr {args[0].value}"
 
     def hex_modifiers(self, args):
         return args
@@ -198,19 +253,6 @@ class YaraTransformer(Transformer):
             self.condition_queue.append(task)
         return task
 
-    def other_primary_expression(self, args):
-        task = None
-        if len(args) == 2:
-            task = Task(self.get_task_id(),
-                        Token('index', 'index'),
-                        args)
-        elif len(args) == 3:
-            raise NotImplementedError("other_primary_expression: STRING_COUNT IN range")
-        else:
-            task = args
-        return task
-
-
     def identifier(self, args):
         task = None
         if len(args) == 1 and isinstance(args[0], Token):
@@ -225,10 +267,15 @@ class YaraTransformer(Transformer):
                 if args[1].data.value == 'index':
                     task = Task(self.get_task_id(),
                                 "index",
-                                [Token("Task", args[0].id), self.get_operand(args[1].children[0])])
+                                [Token("Task", args[0].id, 
+                                    start_pos=args[0].start_pos(), 
+                                    end_pos=args[0].end_pos()), 
+                                self.get_operand(args[1].children[0])])
                     self.condition_queue.append(task)
                 elif args[1].data.value == 'arguments':
-                    operands = [Token("Task", args[0].id)]
+                    operands = [Token("Task", args[0].id, 
+                                    start_pos=args[0].start_pos(), 
+                                    end_pos=args[0].end_pos())]
                     if args[1].children:
                         operands.extend([self.get_operand(x) for x in args[1].children[0]])
                     task = Task(self.get_task_id(),
@@ -258,8 +305,9 @@ class YaraTransformer(Transformer):
 
     def iterator(self, args):
         task = Task(self.get_task_id(),
-                    Token("iterator", "iterator"),
-                    self.get_operand(args[0]))
+                    Token("iterator", "iterator", start_pos=self.get_operand(args[0]).start_pos, end_pos=self.get_operand(args[0]).end_pos),
+                    [self.get_operand(args[0])])
+        self.condition_queue.append(task)
         return task
 
     def arguments_list(self, args):
@@ -270,32 +318,287 @@ class YaraTransformer(Transformer):
     def str_cmp_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
-    def and_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
-
-    def and_primary_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
-
     def expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def and_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
     def not_expression(self, args):
         return self.add_new_unary_op_tasks(args)
 
+    def primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def xor_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def and_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def shift_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
 
     def add_primary_expression(self, args):
+        return self.add_new_binary_op_tasks(args)
+
+    def multiplication_primary_expression(self, args):
         return self.add_new_binary_op_tasks(args)
 
     def unary_primary_expression(self, args):
         return self.add_new_unary_op_tasks(args)
 
-    def multiplication_primary_expression(self, args):
-        return self.add_new_binary_op_tasks(args)
+    def other_primary_expression(self, args):
+        task = None
+        if len(args) == 2:
+            task = Task(self.get_task_id(),
+                        Token('index', 'index', start_pos=self.get_operand(args[0]).start_pos, end_pos=self.get_operand(args[1]).end_pos),
+                        [self.get_operand(args[0]), self.get_operand(args[1])])
+            self.condition_queue.append(task)
+        elif len(args) == 3:
+            raise NotImplementedError("other_primary_expression: STRING_COUNT IN range")
+        else:
+            task = args
+        return task
 
     def range(self, args):
         return self.add_new_task(args)
 
+
+    ####################### Regex functions #############################
+    def re_alternative(self, args):
+        res = Token('re_alternative', [])
+
+        if len(args) == 1:
+            res.value = args[0].value
+        else:
+            res = Token('re_alternative', [])
+
+            res.value.append(f'splitstay [+1],[+{len(args[0].value)+2}]')
+            res.value.extend(args[0].value)
+            res.value.append(f'jmp [+{len(args[1].value)+1}]')
+            res.value.extend(args[1].value)
+
+        return res
+
+    def re_concatenation(self, args):
+        val = []
+        for i in args:
+            val.extend(i.value)
+        return Token('re_concatenation', val)
+
+    def re_repeat(self, args):
+        res = Token('repeat', [])
+        if args[0].type == 're_single':
+            if len(args)>1:
+                range = False
+                instructions = args[0].value
+                is_greedy = len(args)==3
+                if args[1].type == 're_range':
+                    start, end = args[1].value
+                    instructions = self.generate_range_program(instructions, start, end, is_greedy) 
+                elif args[1].type == 'RE_PLUS':
+                    instructions = self.generate_plus_program(instructions, is_greedy)
+                elif args[1].type == 'RE_STAR':
+                    instructions = self.generate_star_program(instructions, is_greedy)
+                elif args[1].type == 'RE_QUESTION_MARK':
+                    instructions = self.generate_question_mark_program(instructions, is_greedy)
+                else:
+                    raise Exception(f"[re_repeat] {args[1].type} is not implemented")
+       
+                res.value.extend(instructions)
+            else:
+                # repeat -> re_single
+                
+                return args[0]
+        else:
+            raise Exception(f'[re_repeat] {args[0].type} not implemented')
+        return res
+
+    def generate_question_mark_program(self, instructions, greedy):
+        return self.generate_range_program(instructions, 0, 1, greedy)
+    
+    def generate_plus_program(self, instructions, greedy):
+        # result = []
+        # if not greedy:
+        #     # none greedy
+        #     result.extend(instructions)
+        #     result.append(f'splitstay [+1],[-{len(instructions)}]')
+        # else:
+        #     # greedy
+        #     result.extend(instructions)
+        #     result.append(f'splitjmp [+1],[-{len(instructions)}]')
+        return self.generate_range_program(instructions, 1, 'end', greedy)
+
+    def generate_star_program(self, instructions, greedy):
+        result = []
+        if not greedy:
+            # none greedy
+            result.append(f'splitjmp [+1],[+{len(instructions)+2}]')
+            result.extend(instructions)
+            result.append(f'jmp [-{len(instructions)+1}]')
+        else:
+            # greedy
+            result.append(f'splitstay [+1],[+{len(instructions)+2}]')
+            result.extend(instructions)
+            result.append(f'jmp [-{len(instructions)+1}]')
+        return result
+
+    def generate_range_program(self, instructions, start, end, greedy):
+
+        result = []
+        start = int(start) if isinstance(start, str) else start
+
+        for i in range(start):
+            result.extend(instructions)
+
+        tmp = list()
+        if(end != 'end'):
+            end = int(end) if isinstance(end, str) else end
+            for i in range(end - start, 0, -1):
+                if not greedy:
+                    # none greedy
+                    tmp.append(f'splitjmp [+1],[+{(len(instructions)+1)*(i)}]')
+                else:
+                    # greedy
+                    tmp.append( f'splitstay [+1],[+{(len(instructions)+1)*(i)}]')
+            for i in range(end - start):
+                tmp.extend(instructions)    
+
+        else:
+            tmp = self.generate_star_program(instructions, greedy)
+
+        result.extend(tmp)
+        return result
+
+    def re_range(self, args):
+        start = None
+        end = None
+        if len(args) == 1:
+            if args[0].type == 'COMMA':
+                start = 0
+                end = 'end'
+            else:
+                start = args[0].value
+                end = start
+        elif len(args) == 2:
+            if args[0].type == 'COMMA':
+                start = 0
+                end = args[1].value
+            else:
+                start = args[0].value
+                end = 'end'
+        else:
+            start = args[0].value
+            end = args[2].value
+
+        return Token('re_range', [start, end] )
+                
+
+    def re_single(self, args):
+        cmd = []
+        if args[0].type == 'char_class' or \
+            (args[0].type == 're_single_char' and isinstance(args[0].value, list)):
+            cmd.append(f"chrc {','.join([hex(byte).replace('0x','') for byte in args[0].value])};")
+        elif args[0].type == 're_single_char':
+            cmd.append(f"chr {hex(args[0].value).replace('0x','')};")
+        else:
+            cmd = args[0].value
+        
+        return Token('re_single', cmd)
+
+    def escaped_char(self, args):
+        if len(args[1]) == 3 and args[1][0] == 'x':
+            return int(args[1][1]+args[1][2], base=16)
+        elif args[1] == 'a':
+            return ord('\a')
+        elif args[1] == 't':
+            return ord('\t')
+        elif args[1] == 'n':
+            return ord('\n')
+        elif args[1] == 'f':
+            return ord('\f') 
+        elif args[1] == 'r':
+            return ord('\r')
+        else:
+            return ord(args[1].value)
+
+    def re_single_char(self, args):
+        val = None
+        if isinstance(args[0], int):
+            val = args[0]
+        elif(args[0].value == '.'):
+            val = [0xff] * 32
+        elif(args[0].value == '\\w'):
+            val = self._word_chars.copy()
+        elif(args[0].value == '\\W'):
+            val = self.not_bitmap(self._word_chars.copy())
+        elif(args[0].value == '\\s'):
+            val = self._space_chars.copy()
+        elif(args[0].value == '\\S'):
+            val = self.not_bitmap(self._space_chars.copy())
+        elif(args[0].value == '\\d'):
+            val = self._digit_chars.copy()
+        elif(args[0].value == '\\D'):
+            val = self.not_bitmap(self._digit_chars.copy())
+        else:
+            val = ord(args[0].value)
+        return Token('re_single_char', val)
+
+    def char_class(self, args):
+        negation = False
+        index = 0
+        if args[0] == '^':
+            negation = False
+            index = 1
+
+        state = 0
+        bitmap = [0] * 32
+        while index < len(args):
+            current_char = args[index].value
+            if isinstance(current_char, int):
+                    self.add_to_bitmap(bitmap, current_char)
+                    index += 1
+            elif isinstance(current_char, list) and len(current_char) == 32:
+                self.or_bitmaps(bitmap, current_char)
+                index += 1
+            elif( isinstance(current_char, str) and index+1 < len(args) -1 and args[index+1] == '-'):
+                    start = ord(current_char)
+                    end = ord(args[index+2].value)
+                    range_bitmap = self.get_bitmap(start, end)
+                    self.or_bitmaps(bitmap, range_bitmap)
+                    index += 3
+            else:
+                raise Exception('char_class: Unknown token')
+
+        return Token('char_class', bitmap)
+
+                
     ##################### internal functions ############################
+    def get_bitmap(self, range_start, range_end):
+        bitmap = [0]* 32
+        for i in range(range_start, range_end +1):
+            self.add_to_bitmap(bitmap, i)
+        return bitmap
+
+    def or_bitmaps(self, base, new_bitmap):
+        if(len(base) != 32 or len(new_bitmap)!= 32):
+            raise Exception('[or_bitmaps] arguments must be bitmap arrays (len(array)==32)')
+
+        for i in range(0, 32):
+            base[i] |= new_bitmap[i]
+
+    def not_bitmap(self, bitmap):
+        if(len(bitmap) != 32 ):
+            raise Exception('[not_bitmaps] argument must be a bitmap array (len(array)==32)')
+
+        for i in range(0, 32):
+            bitmap[i] ^= 0xFF
+
+    def add_to_bitmap(self, bitmap, number):
+        bitmap[number>>3] |= 1<<(number&7)
+
+
     def add_new_binary_op_tasks(self, args):
         task = None
         if len(args) == 3:
@@ -369,7 +672,7 @@ class YaraTransformer(Transformer):
     def get_operand(self, operand):
         res = operand
         if isinstance(operand, Task):
-            res = Token("Task", operand.id)
+            res = Token("Task", operand.id, start_pos=operand.start_pos(), end_pos=operand.end_pos())
         return res
 
     def get_task_id(self):
