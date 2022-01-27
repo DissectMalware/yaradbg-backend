@@ -8,7 +8,7 @@ class YaraEncoder(json.JSONEncoder):
             for i in obj.operands:
                 p = 1
             operands = [{'name': x.type, 'val': x.value, 'start_pos': x.start_pos, 'end_pos': x.end_pos} for x in obj.operands]
-            return {'id': obj.id, 'op': obj.operator, 'args': operands}
+            return {'id': obj.id, 'op': obj.operator, 'args': operands, 'start_pos':obj.start_pos(), 'end_pos':obj.end_pos()}
         elif isinstance(obj, String):
             modifiers = [{'modifier': x.value} for x in obj.modifiers]
             if isinstance(obj.str_val, Tree):
