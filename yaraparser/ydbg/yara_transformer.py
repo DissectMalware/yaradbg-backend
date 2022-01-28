@@ -93,13 +93,18 @@ class YaraTransformer(Transformer):
 
     def rule(self, args):
         rule_name = args[2].value
+
+        if(len(args[0])> 0):
+            start_pos = args[0].start_pos
+        else:
+            start_pos = args[1].start_pos
         if rule_name not in self.yara_rules:
             self.yara_rules[rule_name] = {}
             self.yara_rules[rule_name]['string'] = self.string_queue
             self.string_queue = []
             self.yara_rules[rule_name]['condition'] = self.condition_queue
-            self.yara_rules[rule_name]['start_line'] = args[2].line
-            self.yara_rules[rule_name]['end_line'] = args[8].line
+            self.yara_rules[rule_name]['start_pos'] = start_pos
+            self.yara_rules[rule_name]['end_pos'] = args[8].end_pos
             self.condition_queue = []
             # self.reset_task_id()
         else:
@@ -108,6 +113,12 @@ class YaraTransformer(Transformer):
 
     def for_expression(self, args):
         return self.get_operand(args[0])
+
+    def rule_modifiers(self, args):
+        return args
+
+    def rule_modifier(self, args):
+        return args
 
     def for_variables(self, args):
         tokens = []
