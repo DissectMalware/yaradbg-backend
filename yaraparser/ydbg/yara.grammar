@@ -4,7 +4,7 @@ rules: (rule|import_lib|include_yara)*
 
 import_lib: IMPORT text_string
 include_yara: INCLUDE text_string
-rule: rule_modifiers rule_keyword IDENTIFIER tags "{" meta strings condition "}"
+rule: rule_modifiers rule_keyword IDENTIFIER tags OPEN_BRACKET meta strings condition CLOSE_BRACKET
 rule_modifiers: rule_modifier*
 rule_modifier: PRIVATE
                 | GLOBAL

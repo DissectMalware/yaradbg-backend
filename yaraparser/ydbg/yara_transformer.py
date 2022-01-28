@@ -98,6 +98,8 @@ class YaraTransformer(Transformer):
             self.yara_rules[rule_name]['string'] = self.string_queue
             self.string_queue = []
             self.yara_rules[rule_name]['condition'] = self.condition_queue
+            self.yara_rules[rule_name]['start_line'] = args[2].line
+            self.yara_rules[rule_name]['end_line'] = args[8].line
             self.condition_queue = []
             # self.reset_task_id()
         else:
