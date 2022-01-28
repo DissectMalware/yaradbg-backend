@@ -95,7 +95,7 @@ class YaraTransformer(Transformer):
         rule_name = args[2].value
 
         if(len(args[0])> 0):
-            start_pos = args[0].start_pos
+            start_pos = args[0][0].start_pos
         else:
             start_pos = args[1].start_pos
         if rule_name not in self.yara_rules:
@@ -118,7 +118,7 @@ class YaraTransformer(Transformer):
         return args
 
     def rule_modifier(self, args):
-        return args
+        return args[0]
 
     def for_variables(self, args):
         tokens = []
