@@ -56,6 +56,7 @@ class YaraTransformer(Transformer):
         self.condition_queue = []
         self.hex_virtual_instructions = []
         self.string_queue = []
+        self.dependsOn = []
         self.imports = []
         self.includes = []
         self.tasks = {}
@@ -103,9 +104,11 @@ class YaraTransformer(Transformer):
             self.yara_rules[rule_name]['string'] = self.string_queue
             self.string_queue = []
             self.yara_rules[rule_name]['condition'] = self.condition_queue
+            self.condition_queue = []
             self.yara_rules[rule_name]['start_pos'] = start_pos
             self.yara_rules[rule_name]['end_pos'] = args[8].end_pos
-            self.condition_queue = []
+            self.yara_rules[rule_name]['depends_on'] = self.dependsOn
+            self.dependsOn = []
             # self.reset_task_id()
         else:
             raise Exception("Duplicate Rule {}".format(rule_name))
@@ -273,6 +276,8 @@ class YaraTransformer(Transformer):
                         "identifier",
                         args)
             self.condition_queue.append(task)
+            # record the dependecies between rules
+            self.dependsOn.append(args[0].value)
         elif len(args) == 2 and isinstance(args[0], Task):
             if isinstance(args[1], Token):
                 args[0].operands.append(args[1])
