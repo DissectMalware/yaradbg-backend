@@ -38,6 +38,7 @@ class Task:
 
             if self.operands[i].end_pos > max_pos:
                 max_pos = self.operands[i].end_pos
+
         return max_pos
 
 
@@ -293,7 +294,7 @@ class YaraTransformer(Transformer):
                 elif args[1].data.value == 'arguments':
                     operands = [Token("Task", args[0].id, 
                                     start_pos=args[0].start_pos(), 
-                                    end_pos=args[0].end_pos())]
+                                    end_pos=args[0].end_pos()+1)]
                     if args[1].children:
                         operands.extend([self.get_operand(x) for x in args[1].children[0]])
                     task = Task(self.get_task_id(),
@@ -645,8 +646,8 @@ class YaraTransformer(Transformer):
             res = self.create_unary_task(args)
         elif len(args) == 3:
             res = self.create_binary_task(args)
-        else:
-            p = 1
+        elif len(args) > 3:
+            res = self.create_arg_list_task(args)
 
         if res:
             self.condition_queue.append(res)
@@ -665,6 +666,17 @@ class YaraTransformer(Transformer):
             task = Task(self.get_task_id(),
                         args[1],
                         [self.get_operand(args[0]), self.get_operand(args[2])])
+        return task
+
+    def create_arg_list_task(self, args):
+        task = None
+        if len(args) > 3:
+            operands = []
+            for i in range(1, len(args)):
+                operands.append(self.get_operand(args[i]))
+            task = Task(self.get_task_id(),
+                        args[0],
+                        operands)
         return task
 
     def get_list_tokens(self, args, tokens):

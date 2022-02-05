@@ -158,7 +158,7 @@ for_expression: primary_expression
                     | identifier
                     | regex_exp
 
-integer_function: INTEGER_FUNCTION "(" primary_expression ")"
+integer_function: INTEGER_FUNCTION OPEN_PARANTHESIS primary_expression CLOSE_PARANTHESIS
 
 MULTIPLICATION: "*"
 DIVISION: "\\"
@@ -175,6 +175,8 @@ INCLUDE: "include"
 DASH: "-"
 OPEN_BRACKET: "{"
 CLOSE_BRACKET: "}"
+OPEN_PARANTHESIS: "("
+CLOSE_PARANTHESIS: ")"
 COMMA: ","
 SLASH: "/"
 
