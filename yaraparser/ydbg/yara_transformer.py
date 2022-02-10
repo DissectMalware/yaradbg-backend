@@ -250,12 +250,14 @@ class YaraTransformer(Transformer):
             task = Task(self.get_task_id(),
                         args[1],
                         operands)
+            self.condition_queue.append(task)
         elif len(args) > 3 and isinstance(args[2], Token) and args[2].value == 'of':
             operands = args[0:2]
             self.extend_list(operands, args[3])
             task = Task(self.get_task_id(),
                         args[2],
                         operands)
+            self.condition_queue.append(task)
         elif len(args) > 5 and isinstance(args[0], Token) and args[0].value == 'for':
             operands = []
             for i in range(1, len(args)):
@@ -263,11 +265,10 @@ class YaraTransformer(Transformer):
             task = Task(self.get_task_id(),
                         args[0],
                         operands)
+            self.condition_queue.append(task)
         else:
             task = self.add_new_task(args)
-
-        if task:
-            self.condition_queue.append(task)
+            
         return task
 
     def identifier(self, args):
