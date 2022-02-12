@@ -35,7 +35,7 @@ string_modifier:   WIDE
                    | BASE64 ("(" text_string ")" )?
                    | BASE64_WIDE ("(" text_string ")" )?
 
-regex_exp: SLASH re_alternative SLASH
+regex_exp: SLASH re_alternative SLASH 
 re_alternative: re_concatenation ("|" re_alternative?)*
 re_concatenation: re_repeat re_concatenation*
 re_repeat: re_single RE_STAR RE_QUESTION_MARK?
@@ -91,7 +91,7 @@ arguments_list: expression ("," arguments_list)*
 ?expression: and_expression (OR and_expression)*
 ?and_expression: not_expression (AND not_expression)*
 ?not_expression: (NOT)* str_expression
-?str_expression: str_cmp_expression MATCHES regex_exp
+?str_expression: str_cmp_expression MATCHES regex_exp ("i"|"s")?
             | str_cmp_expression ((CONTAINS|ICONTAINS|STARTSWITH|ISTARTSWITH|ENDSWITH|IENDSWITH|IEQUALS|EQ|NEQ)  str_cmp_expression)*
 ?str_cmp_expression: other_expression ((LT|GT|LE|GE) other_expression)*
 
