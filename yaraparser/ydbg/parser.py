@@ -1,3 +1,4 @@
+from email import message
 import time
 import json
 import os
@@ -16,8 +17,13 @@ def parse(yara_rule_str):
         yara_parsed_tree = yara_parser.parse(yara_rule_str)
 
         minified_json_str = json.dumps(transformer, cls=YaraEncoder, indent=None, separators=(',', ':'))
+    except ParseError as exp:
+        if len(exp.args)>0:
+            minified_json_str = json.dumps({"error": exp.args[0] })
+        else:
+            minified_json_str = json.dumps({"error": f"[Grammar Error]\r\n[Location] Line: {exp.line}, Column:{exp.column}\r\n[Token] {exp.token.type} {exp.token.value}\r\n[Expected] {', '.join(exp.expected)}" })
     except Exception as exp:
-        minified_json_str = "error reading grammar"
+        minified_json_str = json.dumps({"error": exp.args[0] })
 
     return minified_json_str
 

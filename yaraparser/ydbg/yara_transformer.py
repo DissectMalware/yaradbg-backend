@@ -112,7 +112,7 @@ class YaraTransformer(Transformer):
             self.dependsOn = []
             # self.reset_task_id()
         else:
-            raise Exception("Duplicate Rule {}".format(rule_name))
+            raise ParseError("Rule {} is duplicated".format(rule_name))
         return args
 
     def for_expression(self, args):
@@ -424,15 +424,15 @@ class YaraTransformer(Transformer):
                 elif args[1].type == 'RE_QUESTION_MARK':
                     instructions = self.generate_question_mark_program(instructions, is_greedy)
                 else:
-                    raise Exception(f"[re_repeat] {args[1].type} is not implemented")
-       
+                    instructions = [f'err "[re_repeat] ${args[0].type} not implemented"']
+                    
                 res.value.extend(instructions)
             else:
                 # repeat -> re_single
                 
                 return args[0]
         else:
-            raise Exception(f'[re_repeat] {args[0].type} not implemented')
+            res.value.append(f'err "[re_repeat] ${args[0].type} not implemented"')
         return res
 
     def generate_question_mark_program(self, instructions, greedy):
