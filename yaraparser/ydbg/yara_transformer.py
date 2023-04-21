@@ -107,6 +107,7 @@ class YaraTransformer(Transformer):
             self.yara_rules[rule_name]['condition'] = self.condition_queue
             self.condition_queue = []
             self.yara_rules[rule_name]['start_pos'] = start_pos
+            self.yara_rules[rule_name]['line'] = args[2].line
             self.yara_rules[rule_name]['end_pos'] = args[8].end_pos
             self.yara_rules[rule_name]['depends_on'] = self.dependsOn
             self.dependsOn = []

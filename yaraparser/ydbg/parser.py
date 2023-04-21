@@ -21,7 +21,16 @@ def parse(yara_rule_str):
         if len(exp.args)>0:
             minified_json_str = json.dumps({"error": exp.args[0] })
         else:
-            minified_json_str = json.dumps({"error": f"[Grammar Error]\r\n[Location] Line: {exp.line}, Column:{exp.column}\r\n[Token] {exp.token.type} {exp.token.value}\r\n[Expected] {', '.join(exp.expected)}" })
+            minified_json_str = json.dumps({"error": f"[Grammar Error]\r\n[Location] Line: {exp.line}, Column:{exp.column}\r\n[Current token] type: {exp.token.type} value: {exp.token.value}\r\n[Expected token(s)] {', '.join(exp.expected)}",
+                                            "error_obj": {
+                                                "line": exp.line,
+                                                "column": exp.column,
+                                                "token_type": exp.token.type,
+                                                "token_val": exp.token.value,
+                                                "token_len": exp.token.end_pos - exp.token.start_pos + 1,
+                                                "token_start_pos": exp.token.start_pos,
+                                                "expected": ', '.join(exp.expected)
+                                            }})
     except Exception as exp:
         minified_json_str = json.dumps({"error": exp.args[0] })
 
