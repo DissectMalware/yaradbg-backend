@@ -95,7 +95,7 @@ arguments_list: expression ("," arguments_list)*
             | str_cmp_expression ((CONTAINS|ICONTAINS|STARTSWITH|ISTARTSWITH|ENDSWITH|IENDSWITH|IEQUALS|EQ|NEQ)  str_cmp_expression)*
 ?str_cmp_expression: other_expression ((LT|GT|LE|GE) other_expression)*
 
-?other_expression: primary_expression
+other_expression: primary_expression
             | TRUE
             | FALSE
             | STRING_IDENTIFIER

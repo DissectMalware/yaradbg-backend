@@ -245,7 +245,14 @@ class YaraTransformer(Transformer):
 
     def other_expression(self, args):
         task = None
-        if len(args) > 2 and isinstance(args[1], Token) and args[1].value == 'of':
+        if len(args) == 1 and isinstance(args[0], Token):
+            task = Task(self.get_task_id(),
+                        "STRING_IDENTIFIER",
+                        args)
+            self.condition_queue.append(task)
+            # record the dependecies between rules
+            self.dependsOn.append(args[0].value)
+        elif len(args) > 2 and isinstance(args[1], Token) and args[1].value == 'of':
             operands = [args[0]]
             self.extend_list(operands, args[2])
             task = Task(self.get_task_id(),
