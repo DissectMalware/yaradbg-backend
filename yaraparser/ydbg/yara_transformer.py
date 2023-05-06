@@ -245,7 +245,9 @@ class YaraTransformer(Transformer):
 
     def other_expression(self, args):
         task = None
-        if len(args) == 1 and isinstance(args[0], Token):
+        if len(args) == 1 and isinstance(args[0], Task):
+            return args[0]
+        elif len(args) == 1 and isinstance(args[0], Token):
             task = Task(self.get_task_id(),
                         "STRING_IDENTIFIER",
                         args)
